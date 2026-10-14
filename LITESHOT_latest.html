@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LITESHOT - Full Featured Arena</title>
+    <title>LITESHOT48 - Full Featured Arena</title>
     
     <!-- Socket.io Library for Multiplayer -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
@@ -297,7 +297,7 @@
     </div>
     <div id="blocker">
         <div id="instructions">
-            <h1>LITESHOT51</h1>
+            <h1>LITESHOT48</h1>
             <p style="color: #888; margin-bottom: 15px; font-size: 12px;">ONLINE MULTIPLAYER ARENA</p>
             
             <div class="input-group">
@@ -680,14 +680,7 @@
             rp.target.set(playerInfo.x, playerInfo.y - 2.2, playerInfo.z);
             rp.yawTarget = playerInfo.yaw;
         });
-        socket.on('playerHit', (hitData) => {
-            if (hitData && hitData.stealthAttack) showStealthNotice('STEALTH ATTACK! ONE-HIT KO');
-            damagePlayer(hitData.damage, hitData.attackerId, hitData.weapon);
-        });
-        socket.on('stealthAttackLanded', (data) => {
-            const targetName = data && data.targetName ? data.targetName : 'target';
-            showStealthNotice('STEALTH HIT! ' + targetName + ' — ONE-HIT KO');
-        });
+        socket.on('playerHit', (hitData) => damagePlayer(hitData.damage, hitData.attackerId, hitData.weapon));
 
         socket.on('playerIdentity', (info) => {
             const rp = remotePlayers[info.id];
@@ -1464,7 +1457,7 @@
                     onObjectiveEvent('botKill', { weapon: name });
                     despawnCharacter(bot.mesh, bot.meshCore);
                     kills++; updateHUD();
-                    setTimeout(() => { const sp = randomOpenSpot(); spawnBot(bot.isShooter, sp.x, sp.z, bot.isTallShotgunner); }, 4000);
+                    setTimeout(() => { const sp = randomOpenSpot(); spawnBot(bot.isShooter, sp.x, sp.z); }, 4000);
                 } else {
                     playSound('hit');
                     showHitMarker(false);
@@ -1814,7 +1807,7 @@
                     onObjectiveEvent('botKill', { weapon: 'Grenade' });
                     despawnCharacter(bot.mesh, bot.meshCore);
                     kills++; updateHUD();
-                    setTimeout(() => { const sp = randomOpenSpot(); spawnBot(bot.isShooter, sp.x, sp.z, bot.isTallShotgunner); }, 4000);
+                    setTimeout(() => { const sp = randomOpenSpot(); spawnBot(bot.isShooter, sp.x, sp.z); }, 4000);
                 }
             });
 
@@ -1903,57 +1896,23 @@
             return best || randomOpenSpot();
         }
 
-        function spawnBot(isShooter, x, z, isTallShotgunner = false) {
+        function spawnBot(isShooter, x, z) {
             const botGroup = new THREE.Group();
-            // Tall shotgun enemies have a distinct dark-red suit so players can recognise them.
-            const suitMat = new THREE.MeshStandardMaterial({
-                color: isTallShotgunner ? 0x7a1730 : 0x1b2230,
-                emissive: isTallShotgunner ? 0x21000a : 0x000000,
-                roughness: 0.4,
-                metalness: 0.3
-            });
+            const suitMat = new THREE.MeshStandardMaterial({ color: 0x1b2230, roughness: 0.4, metalness: 0.3 });
             const skinMat = new THREE.MeshStandardMaterial({ color: 0xd8b59b, roughness: 0.6 });
-            const parts = [];
 
             const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 0.3), suitMat);
-            torso.position.y = 1.05; botGroup.add(torso); parts.push(torso);
+            torso.position.y = 1.05; botGroup.add(torso);
             const head = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.32, 0.3), skinMat);
-            head.position.y = 1.55; botGroup.add(head); parts.push(head);
+            head.position.y = 1.55; botGroup.add(head);
 
-            if (isTallShotgunner) {
-                // Simple visible shotgun model, scaled with the rest of the 3x-tall enemy.
-                const gunMat = new THREE.MeshStandardMaterial({ color: 0x242a32, metalness: 0.75, roughness: 0.28 });
-                const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.14, 0.52), gunMat);
-                receiver.position.set(0.31, 1.08, -0.12); botGroup.add(receiver); parts.push(receiver);
-                const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.55, 6), gunMat);
-                barrel.rotation.x = Math.PI / 2;
-                barrel.position.set(0.31, 1.1, -0.61); botGroup.add(barrel); parts.push(barrel);
-                const stock = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.12, 0.22), suitMat);
-                stock.position.set(0.31, 1.08, 0.22); botGroup.add(stock); parts.push(stock);
-            }
+            botGroup.position.set(x, 0, z); scene.add(botGroup);
 
             const hitMesh = new THREE.Mesh(new THREE.BoxGeometry(0.7, 2.2, 0.7), new THREE.MeshBasicMaterial({ visible: false }));
             hitMesh.position.y = 1.1; botGroup.add(hitMesh);
-            const botHeight = isTallShotgunner ? 6.6 : 2.2;
-            if (isTallShotgunner) botGroup.scale.set(1, 3, 1);
-            botGroup.position.set(x, 0, z); scene.add(botGroup);
-
             hitMesh.geometry.computeBoundingBox();
             const botBox = new THREE.Box3(); botBox.setFromObject(hitMesh);
-            const bot = {
-                mesh: botGroup,
-                meshCore: hitMesh,
-                parts,
-                isShooter: isShooter,
-                isTallShotgunner: isTallShotgunner,
-                height: botHeight,
-                health: 100,
-                shootCooldown: 0,
-                patrolTimer: Math.random() * 100,
-                name: isTallShotgunner ? 'Tall Shotgunner' : 'Bot_Alpha',
-                target: null,
-                think: 0
-            };
+            const bot = { mesh: botGroup, meshCore: hitMesh, parts: [torso, head], isShooter: isShooter, health: 100, shootCooldown: 0, patrolTimer: Math.random() * 100, name: 'Bot_Alpha', target: null, think: 0 };
             bots.push(bot);
             obstacles.push({ mesh: hitMesh, box: botBox, isBot: true, bot: bot });
         }
@@ -1966,11 +1925,6 @@
             for (let i = 0; i < 4; i++) {
                 const sp = randomOpenSpot();
                 spawnBot(i % 2 === 0, sp.x, sp.z);
-            }
-            // Add two tall enemies to the existing bot roster. They use a close-range shotgun.
-            for (let i = 0; i < 2; i++) {
-                const sp = randomOpenSpot();
-                spawnBot(true, sp.x, sp.z, true);
             }
         }
 
@@ -2555,21 +2509,6 @@
             }
         });
 
-        let stealthNoticeTimer = null;
-        function showStealthNotice(message) {
-            let notice = document.getElementById('liteshot-stealth-notice');
-            if (!notice) {
-                notice = document.createElement('div');
-                notice.id = 'liteshot-stealth-notice';
-                notice.style.cssText = 'position:fixed;top:19%;left:50%;transform:translateX(-50%);z-index:9999;display:none;max-width:90vw;padding:12px 18px;border:2px solid #b266ff;border-radius:6px;background:rgba(13,7,22,.94);color:#e5c8ff;font:bold 15px Courier New,monospace;letter-spacing:1.5px;text-align:center;text-shadow:0 0 10px rgba(178,102,255,.65);pointer-events:none;';
-                document.body.appendChild(notice);
-            }
-            notice.textContent = message;
-            notice.style.display = 'block';
-            clearTimeout(stealthNoticeTimer);
-            stealthNoticeTimer = setTimeout(() => { notice.style.display = 'none'; }, 1800);
-        }
-
         function damagePlayer(amount = 10, attackerId = null, weapon = 'Unknown') {
             if (isDead) return;
             playerHealth = Math.max(0, playerHealth - amount);
@@ -2608,7 +2547,7 @@
                     if (!obs.bot || obs.bot.health <= 0) continue;
                     const bp = obs.bot.mesh.position;
                     obs.box.min.set(bp.x - 0.35, bp.y, bp.z - 0.35);
-                    obs.box.max.set(bp.x + 0.35, bp.y + (obs.bot.height || 2.2), bp.z + 0.35);
+                    obs.box.max.set(bp.x + 0.35, bp.y + 2.2, bp.z + 0.35);
                 }
                 if (obs.isPlayer) {
                     const rp = remotePlayers[obs.id];
@@ -2688,16 +2627,7 @@
                 let hitDetected = false;
 
                 bots.forEach(bot => {
-                    const bp = bot.mesh.position;
-                    const dx = b.mesh.position.x - bp.x;
-                    const dz = b.mesh.position.z - bp.z;
-                    const hitsTallBody = bot.isTallShotgunner &&
-                        Math.hypot(dx, dz) < 0.72 &&
-                        b.mesh.position.y >= bp.y &&
-                        b.mesh.position.y <= bp.y + bot.height;
-                    const hitsNormalBot = !bot.isTallShotgunner &&
-                        b.mesh.position.distanceTo(bot.mesh.position) < 1.2;
-                    if (!hitDetected && bot.health > 0 && (hitsTallBody || hitsNormalBot)) {
+                    if (!hitDetected && bot.health > 0 && b.mesh.position.distanceTo(bot.mesh.position) < 1.2) {
                         hitDetected = true;
                         bot.health -= b.damage;
                         playSound('hit');
@@ -2710,7 +2640,7 @@
                             onObjectiveEvent('botKill', { weapon: b.weaponName });
                             despawnCharacter(bot.mesh, bot.meshCore);
                             kills++; updateHUD();
-                            setTimeout(() => { const sp = randomOpenSpot(); spawnBot(bot.isShooter, sp.x, sp.z, bot.isTallShotgunner); }, 4000);
+                            setTimeout(() => { const sp = randomOpenSpot(); spawnBot(bot.isShooter, sp.x, sp.z); }, 4000);
                         }
                     }
                 });
@@ -2776,12 +2706,8 @@
             bots.forEach(bot => {
                 if (bot.health <= 0) return;
                 const pos = bot.mesh.position;
-                const distanceToPlayer = pos.distanceTo(camera.position);
-                const seesPlayer = distanceToPlayer < 40 &&
-                    clearLineOfSight(pos.x, bot.isTallShotgunner ? 3.5 : 1.4, pos.z, camera.position.x, camera.position.y - 0.6, camera.position.z);
-                const canUseShotgun = bot.isTallShotgunner && seesPlayer && distanceToPlayer <= 18;
-                const canUseNormalGun = bot.isShooter && seesPlayer && !bot.isTallShotgunner;
-                const canAttack = canUseShotgun || canUseNormalGun;
+                const seesPlayer = pos.distanceTo(camera.position) < 40 &&
+                    clearLineOfSight(pos.x, 1.4, pos.z, camera.position.x, camera.position.y - 0.6, camera.position.z);
 
                 bot.think--;
                 if (!bot.target || bot.think <= 0 || Math.hypot(bot.target.x - pos.x, bot.target.z - pos.z) < 1) {
@@ -2789,15 +2715,10 @@
                     bot.think = 240 + Math.random() * 240;
                 }
 
-                if (bot.isTallShotgunner && seesPlayer && distanceToPlayer > 18) {
-                    bot.target = { x: camera.position.x, z: camera.position.z };
-                }
-
-                if (!canAttack) {
+                if (!(bot.isShooter && seesPlayer)) {
                     const dx = bot.target.x - pos.x, dz = bot.target.z - pos.z;
                     const len = Math.hypot(dx, dz) || 1;
-                    const speed = bot.isTallShotgunner ? 0.06 : 0.05;
-                    const nx = pos.x + (dx / len) * speed, nz = pos.z + (dz / len) * speed;
+                    const nx = pos.x + (dx / len) * 0.05, nz = pos.z + (dz / len) * 0.05;
                     if (botCanStand(nx, nz)) {
                         pos.x = nx; pos.z = nz;
                         bot.mesh.rotation.y = Math.atan2(dx, dz);
@@ -2806,13 +2727,10 @@
                     }
                 }
 
-                if (canAttack) {
+                if (bot.isShooter && seesPlayer) {
                     bot.mesh.lookAt(camera.position.x, pos.y, camera.position.z);
                     bot.shootCooldown++;
-                    if (bot.isTallShotgunner && bot.shootCooldown > 120) {
-                        bot.shootCooldown = 0;
-                        damagePlayer(24, null, 'Shotgun');
-                    } else if (!bot.isTallShotgunner && bot.shootCooldown > 90) {
+                    if (bot.shootCooldown > 90) {
                         bot.shootCooldown = 0;
                         damagePlayer(10, null, 'Bot');
                     }
